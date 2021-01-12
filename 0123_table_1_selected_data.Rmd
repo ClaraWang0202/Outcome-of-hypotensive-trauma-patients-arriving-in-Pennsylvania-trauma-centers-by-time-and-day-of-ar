@@ -1,0 +1,408 @@
+---
+title: "10_18_table_1_rep_full_data"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(coin)
+```
+
+## 1. check grouping
+```{r, message=FALSE, warning=FALSE}
+# load cleaned data
+df.clean <- read_csv("UPDATED_3_trauma_data_clean.csv")
+df.selected <- df.clean %>% filter(!is.na(gcs_calc_a)) 
+dim(df.selected)
+df.selected$updated_group <- as.factor(df.selected$updated_group)
+table(df.selected$updated_group)
+head(df.selected)
+```
+
+## 2. variable analysis in table 1 
+
+```{r}
+# age
+df.age <- df.selected %>% group_by(updated_group) %>% summarise(age.med = median(age), age.1Q = quantile(age, 0.25), age.3Q = quantile(age, 0.75))
+df.age
+```
+
+```{r}
+# sex: 0=male, 1=female
+df.selected$sex = ifelse(df.selected$sex=="Female",1,0)
+df.sex <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.male = n()-sum(sex), perc = count.male/count)
+df.sex
+```
+
+```{r}
+# injury_type: 0=blunt, 1=penetrating
+df.injurytype <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.penetrating = sum(injury_type), perc = count.penetrating/count)
+df.injurytype
+```
+
+```{r}
+# gcs
+df.selected$gcs_calc_a <- as.character(df.selected$gcs_calc_a)
+df.selected$gcs_calc_a[df.selected$gcs_calc_a== "<unk>"] <- NA
+df.selected$gcs_calc_a <- as.numeric(df.selected$gcs_calc_a)
+
+df.gcs <- df.selected %>% 
+  group_by(updated_group) %>% 
+  summarise(gcs.med = median(gcs_calc_a, na.rm = TRUE), 
+            gcs.1Q = quantile(gcs_calc_a, 0.25, na.rm = TRUE), 
+            gcs.3Q = quantile(gcs_calc_a, 0.75, na.rm = TRUE))
+df.gcs
+```
+
+```{r}
+# blood pressure
+df.bp0 <- df.selected %>% 
+  filter(sys_bp_a==0) %>% 
+  group_by(updated_group) %>% 
+  summarise(count_0=n())
+
+df.bp <- df.selected %>% 
+  group_by(updated_group) %>% 
+  summarise(bp.med = median(sys_bp_a), 
+            bp.1Q = quantile(sys_bp_a, 0.25), 
+            bp.3Q = quantile(sys_bp_a, 0.75), 
+            count = n()) %>% 
+  left_join(df.bp0, by = "updated_group") %>%
+  mutate(perc_0 = count_0/count)
+
+df.bp
+```
+
+```{r}
+# heart rate
+df.selected$pulse_a <- as.numeric(as.character(df.selected$pulse_a))
+
+df.hr0 <- df.selected %>% 
+  filter(pulse_a==0) %>% 
+  group_by(updated_group) %>% 
+  summarise(count_0=n())
+
+df.hr <- df.selected %>% 
+  group_by(updated_group) %>% 
+  summarise(hr.med = median(pulse_a, na.rm = TRUE), 
+            hr.1Q = quantile(pulse_a, 0.25, na.rm = TRUE), 
+            hr.3Q = quantile(pulse_a, 0.75, na.rm = TRUE),
+            count = n())%>% 
+  left_join(df.hr0, by = "updated_group") %>%
+  mutate(perc_0 = count_0/count)
+
+df.hr
+```
+
+```{r}
+df.ISS <- df.selected %>% group_by(updated_group) %>% summarise(ISS.med = median(injury_serverity_score, na.rm = TRUE), ISS.1Q = quantile(injury_serverity_score, 0.25, na.rm = TRUE), ISS.3Q = quantile(injury_serverity_score, 0.75, na.rm = TRUE))
+df.ISS
+```
+
+```{r}
+# trauma_center_level: 0=level1, 1=level 2
+df.selected$trauma_center_level <- ifelse(df.selected$trauma_center_level=="Level 1",1,0)
+df.level <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.level1 = sum(trauma_center_level), perc = count.level1/count)
+df.level
+```
+
+```{r}
+# Mortality rate 
+df.death1 <- df.selected %>% 
+  filter(death=="Dead") %>% 
+  group_by(updated_group) %>% 
+  summarise(count_1=n())
+
+df.death <- df.selected %>% 
+  group_by(updated_group) %>% 
+  summarise(count = n())%>% 
+  left_join(df.death1, by = "updated_group") %>%
+  mutate(perc_death = count_1/count)
+df.death
+```
+
+```{r}
+# Post ED destination 
+# - Died in ED (6)
+# - Operating room (2)
+# - Interventional radiology(11)
+# - Intensive care unit (1)
+
+# Died in ED (6)
+df.DE <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.DE = sum(post_ed==6), perc = count.DE/count)
+df.DE
+
+# Operating room (2)
+df.OR <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.OR = sum(post_ed==2), perc = count.OR/count)
+df.OR
+
+# Interventional radiology(11)
+df.IR <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.IR = sum(post_ed==11), perc = count.IR/count)
+df.IR
+
+# Intensive care unit (1)
+df.ICU <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.ICU = sum(post_ed==1), perc = count.ICU/count)
+df.ICU
+```
+
+```{r}
+# Mortality rate at 24 hours after admission 
+
+# eda_date was a character type, make it a date
+df.selected$eda_date <- as.Date(df.selected$eda_date, format = "%m/%d/%Y")
+
+df.selected$eda_T <- as.POSIXct(paste(df.selected$eda_date, df.selected$eda_time), format="%Y-%m-%d %H:%M:%S")
+df.selected$death_T <- as.POSIXct(paste(df.selected$day_of_death, df.selected$time_of_death), format="%Y-%m-%d %H:%M:%S")
+
+df.selected$timediff <-df.selected$death_T-df.selected$eda_T
+
+df.24MR <- df.selected %>% group_by(updated_group) %>% summarise(count = n(), count.24MR = sum(timediff<=24*3600, na.rm = TRUE), perc = count.24MR/count)
+df.24MR
+```
+
+
+## 4. univariate test for variables in table 1
+For continuous variable, perform Kruskal–Wallis test to test whether samples in 4 groups originate from the same distribution.  
+For binomial variables, preform Pearson's Chi-squared Test to test whether 4 groups have the same frequency.
+
+#### 4.1 continuous variables
+
+```{r}
+# p-value of age
+age.test <- kruskal.test(age ~ updated_group,data = df.selected)
+p_val.age <- age.test$"p.value" 
+ifelse(p_val.age<0.0001,"<0.0001", round(p_val.age, digits = 4))
+
+# p-value of gcs
+gcs.test <- kruskal.test(gcs_calc_a ~ updated_group,data = df.selected)
+p_val.gcs <- gcs.test$"p.value"
+ifelse(p_val.gcs<0.0001,"<0.0001", round(p_val.gcs, digits = 4))
+
+# p-value of blood pressure
+sbp.test <- kruskal.test(sys_bp_a ~ updated_group,data = df.selected)
+p_val.sbp <- sbp.test$"p.value" 
+ifelse(p_val.sbp<0.0001,"<0.0001", round(p_val.sbp, digits = 4))
+
+
+# p-value of heart rate
+hr.test <- kruskal.test(pulse_a ~ updated_group,data = df.selected)
+p_val.hr <- hr.test$"p.value" 
+ifelse(p_val.hr<0.0001,"<0.0001", round(p_val.hr, digits = 4))
+
+# p-value of ISS
+ISS.test <- kruskal.test(injury_serverity_score ~ updated_group,data = df.selected)
+p_val.ISS <- ISS.test$"p.value" 
+ifelse(p_val.ISS<0.0001,"<0.0001", round(p_val.ISS, digits = 4))
+```
+
+## 4.2 binary variables 
+
+```{r, fig.height=3, fig.width=5}
+df.selected$updated_group <- as.factor(df.selected$updated_group)
+# p-value of sex: 0=male, 1=female
+df.selected$sex <- as.factor(df.selected$sex)
+test.sex <- chisq_test(sex ~ updated_group, data = df.selected)
+p_val.sex <- pvalue(test.sex)
+ifelse(p_val.sex<0.0001,"<0.0001", round(p_val.sex, digits = 4))
+
+# p-value of injury type: 0=blunt, 1=penetrating
+df.selected$injury_type <- as.factor(df.selected$injury_type)
+test.injurytype <- chisq_test(injury_type ~ updated_group, data = df.selected)
+p_val.injurytype <- pvalue(test.injurytype)
+ifelse(p_val.injurytype<0.0001,"<0.0001", round(p_val.injurytype, digits = 4))
+
+# p-value of bp_zero : 1 if sys_bp_a=0, 0 otherwise
+df.selected$bp_zero <- ifelse(df.selected$sys_bp_a == 0,1,0)
+df.selected$bp_zero <- as.factor(df.selected$bp_zero)
+test.bp_zero <- chisq_test(bp_zero ~ updated_group, data = df.selected)
+p_val.bp_zero <- pvalue(test.bp_zero)
+ifelse(p_val.bp_zero<0.0001,"<0.0001", round(p_val.bp_zero, digits = 4))
+
+# p-value of pulse_zero : 1 if pulse_a=0, 0 otherwise
+df.selected$pulse_zero <- ifelse(df.selected$pulse_a == 0,1,0)
+df.selected$pulse_zero <- as.factor(df.selected$pulse_zero)
+test.pulse_zero <- chisq_test(pulse_zero ~ updated_group, data = df.selected)
+p_val.pulse_zero <- pvalue(test.pulse_zero)
+ifelse(p_val.pulse_zero<0.0001,"<0.0001", round(p_val.pulse_zero, digits = 4))
+
+# p-value of trauma center level: 0=level1, 1=level 2
+test.centerlevel <- chisq_test(factor(trauma_center_level) ~ updated_group, data = df.selected)
+p_val.centerlevel <- pvalue(test.centerlevel)
+ifelse(p_val.centerlevel<0.0001,"<0.0001", round(p_val.centerlevel, digits = 4))
+
+# p-value of death: 1=dead, 0 otherwise
+df.selected$death <- as.factor(df.selected$death)
+test.death <- chisq_test(death ~ updated_group, data = df.selected)
+p_val.death <- pvalue(test.death)
+ifelse(p_val.death<0.0001,"<0.0001", round(p_val.death, digits = 4))
+
+# p-value of Died in ED (6) : 1 if post_ed=6, 0 otherwise
+df.selected$DE <- ifelse(df.selected$post_ed == 6,1,0)
+df.selected$DE <- as.factor(df.selected$DE)
+test.DE <- chisq_test(DE ~ updated_group, data = df.selected)
+p_val.DE <- pvalue(test.DE)
+ifelse(p_val.DE<0.0001,"<0.0001", round(p_val.DE, digits = 4))
+
+# p-value of Operating room (2) : 1 if post_ed=2, 0 otherwise
+df.selected$OR <- ifelse(df.selected$post_ed == 2,1,0)
+df.selected$OR <- as.factor(df.selected$OR)
+test.OR <- chisq_test(OR ~ updated_group, data = df.selected)
+p_val.OR <- pvalue(test.OR)
+ifelse(p_val.OR<0.0001,"<0.0001", round(p_val.OR, digits = 4))
+
+# p-value of Interventional radiology(11) : 1 if post_ed=11, 0 otherwise
+df.selected$IR <- ifelse(df.selected$post_ed == 11,1,0)
+df.selected$IR <- as.factor(df.selected$IR)
+test.IR <- chisq_test(IR ~ updated_group, data = df.selected)
+p_val.IR <- pvalue(test.IR)
+ifelse(p_val.IR<0.0001,"<0.0001", round(p_val.IR, digits = 4))
+
+# p-value of Intensive care unit (1) : 1 if post_ed=1, 0 otherwise
+df.selected$ICU <- ifelse(df.selected$post_ed == 1,1,0)
+df.selected$ICU <- as.factor(df.selected$ICU)
+test.ICU <- chisq_test(ICU ~ updated_group, data = df.selected)
+p_val.ICU <- pvalue(test.ICU)
+ifelse(p_val.ICU<0.0001,"<0.0001", round(p_val.ICU, digits = 4))
+
+# p-value of Mortality rate at 24 hours after admission   
+df.selected$MR <- ifelse(df.selected$timediff<=24*3600,1,0)
+df.selected$MR <- as.factor(df.selected$MR)
+test.MR <- chisq_test(MR ~ updated_group, data = df.selected)
+p_val.MR <- pvalue(test.MR)
+ifelse(p_val.MR<0.0001,"<0.0001", round(p_val.MR, digits = 4))
+```
+
+```{r}
+num.death <- df.selected%>% filter(death=="Dead")%>%summarise(count = n())
+num.death/nrow(df.selected)
+
+num.death24 <- df.selected%>% filter(MR==1)%>%summarise(count = n())
+num.death24/num.death
+```
+
+## 5. variable analysis in data discription ("dead" vs "not dead") in paper 
+```{r}
+# percentage of male
+df.selected %>% group_by(death) %>% summarise(count = n(), count.M = sum(sex=="Male"), perc = count.M/count)
+
+# test
+test.sex <- chisq_test(factor(sex) ~ factor(death), data = df.selected)
+p_val.sex <- pvalue(test.sex)
+ifelse(p_val.sex<0.0001,"<0.0001", round(p_val.sex, digits = 4))
+```
+
+```{r}
+# age
+df.age1 <- df.selected %>% group_by(death) %>% summarise(age.med = median(age), age.1Q = quantile(age, 0.25), age.3Q = quantile(age, 0.75))
+df.age1
+
+# p-value of age
+age.test <- kruskal.test(age ~ factor(death),data = df.selected)
+p_val.age <- age.test$"p.value" 
+ifelse(p_val.age<0.0001,"<0.0001", round(p_val.age, digits = 4))
+```
+
+```{r}
+# ISS
+df.ISS1 <- df.selected %>% group_by(death) %>% summarise(ISS.med = median(injury_serverity_score, na.rm = TRUE), ISS.1Q = quantile(injury_serverity_score, 0.25, na.rm = TRUE), ISS.3Q = quantile(injury_serverity_score, 0.75, na.rm = TRUE))
+df.ISS1
+
+# p-value
+ISS.test <- kruskal.test(injury_serverity_score ~ death,data = df.selected)
+p_val.ISS <- ISS.test$"p.value" 
+ifelse(p_val.ISS<0.0001,"<0.0001", round(p_val.ISS, digits = 4))
+```
+
+
+```{r}
+# GCS
+df.gcs1 <- df.selected %>% 
+  group_by(death) %>% 
+  summarise(gcs.med = median(gcs_calc_a, na.rm = TRUE), 
+            gcs.1Q = quantile(gcs_calc_a, 0.25, na.rm = TRUE), 
+            gcs.3Q = quantile(gcs_calc_a, 0.75, na.rm = TRUE))
+df.gcs1
+
+# p-value
+gcs.test <- kruskal.test(gcs_calc_a ~ updated_group,data = df.selected)
+p_val.gcs <- gcs.test$"p.value"
+ifelse(p_val.gcs<0.0001,"<0.0001", round(p_val.gcs, digits = 4))
+```
+
+
+```{r}
+# heart rate
+df.hr0 <- df.selected %>% 
+  filter(pulse_a==0) %>% 
+  group_by(death) %>% 
+  summarise(count_0=n())
+
+df.hr <- df.selected %>% 
+  group_by(death) %>% 
+  summarise(hr.med = median(pulse_a, na.rm = TRUE), 
+            hr.1Q = quantile(pulse_a, 0.25, na.rm = TRUE), 
+            hr.3Q = quantile(pulse_a, 0.75, na.rm = TRUE),
+            count = n())%>% 
+  left_join(df.hr0, by = "death") %>%
+  mutate(perc_0 = count_0/count)
+
+df.hr
+
+# p-value
+hr.test <- kruskal.test(pulse_a ~ death,data = df.selected)
+p_val.hr <- hr.test$"p.value" 
+ifelse(p_val.hr<0.0001,"<0.0001", round(p_val.hr, digits = 4))
+```
+
+```{r}
+# blood pressure
+df.bp0 <- df.selected %>% 
+  filter(sys_bp_a==0) %>% 
+  group_by(death) %>% 
+  summarise(count_0=n())
+
+df.bp1 <- df.selected %>% 
+  group_by(death) %>% 
+  summarise(bp.med = median(sys_bp_a), 
+            bp.1Q = quantile(sys_bp_a, 0.25), 
+            bp.3Q = quantile(sys_bp_a, 0.75), 
+            count = n()) %>% 
+  left_join(df.bp0, by = "death") %>%
+  mutate(perc_0 = count_0/count)
+
+df.bp1
+
+# p-value
+test.bp_zero <- chisq_test(factor(bp_zero) ~ factor(death), data = df.selected)
+p_val.bp_zero <- pvalue(test.bp_zero)
+ifelse(p_val.bp_zero<0.0001,"<0.0001", round(p_val.bp_zero, digits = 4))
+```
+
+```{r}
+# injury_type: 0=blunt, 1=penetrating
+df.injurytype1 <- df.selected %>% group_by(death) %>% summarise(count = n(), count.penetrating = sum(injury_type), perc = count.penetrating/count)
+df.injurytype1
+
+# p-value
+test.injurytype <- chisq_test(factor(injury_type) ~ factor(death), data = df.selected)
+p_val.injurytype <- pvalue(test.injurytype)
+ifelse(p_val.injurytype<0.0001,"<0.0001", round(p_val.injurytype, digits = 4))
+
+```
+
+```{r}
+# trauma_center_level: 0=level1, 1=level 2
+df.level1 <- df.selected %>% group_by(death) %>% summarise(count = n(), count.level1 = sum(trauma_center_level), perc = count.level1/count)
+df.level1
+
+# p-value
+test.centerlevel <- chisq_test(factor(trauma_center_level) ~ factor(death), data = df.selected)
+p_val.centerlevel <- pvalue(test.centerlevel)
+ifelse(p_val.centerlevel<0.0001,"<0.0001", round(p_val.centerlevel, digits = 4))
+```
+
