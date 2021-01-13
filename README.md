@@ -4,6 +4,12 @@
 This study utilized de-identified data provided by the Pennsylvania Trauma Systems Foundation (PTSF) Pennsylvania Trauma Outcomes Study (PTOS) database.
 ### Background
 Although most studies of trauma patients have not demonstrated a “weekend” or “night” effect on mortality, outcomes of hypotensive patients have not been studied. We sought to evaluate whether outcomes of hypotensive patients were associated with admission time and day.
+ Time and day of admission were analyzed as four groups:
+•	Group 1: Weekday Day (Monday to Friday, 07:00 – 18:59) 
+•	Group 2: Weekday Night (Monday to Friday, 19:00 – 06:59)
+•	Group 3: Weekend Day (Saturday and Sunday, 07:00 – 18:59)
+•	Group 4: Weekend Night (Saturday and Sunday, 19:00 – 06:59) 
+
 ## Methods 
 We retrospectively analyzed patients from Pennsylvania Level 1 and Level 2 trauma centers with systolic blood pressure of <90 mm Hg over 5 y. Patients were stratified into four groups by arrival day and time: Group 1, weekday days; Group 2, weekday nights; Group 3, weekend days; and Group 4, weekend nights. Patient characteristics and outcomes were compared for the four groups. Adjusted mortality risks for Groups 2, 3, and 4 with Group 1 as the reference were determined using a generalized linear mixed effects model.
 ### Our hypothesis was that there were no increased risk of death during weekends or nights for hypotensive patients arriving at trauma centers.
