@@ -15,8 +15,8 @@ We retrospectively analyzed patients from Pennsylvania Level 1 and Level 2 traum
 ### Our hypothesis was that there were no increased risk of death during weekends or nights for hypotensive patients arriving at trauma centers.
 ## Analysis: 
 ### Cleaned the data base on statistics method and domain information.
-### Plotted the variable to understanding the data
-### Implemented a stepwise algorithm to select terms
+### Plotted the variable to understanding the data.
+### Implemented a stepwise algorithm to select terms.
 ### Build generalized linear mixed effect model. 
 
 ## Results
