@@ -4,3 +4,5 @@
 ## Analysis: 
 ### cleaned the data ; plotted the variable ; selected variables ; build the model
 ## Patients arriving in shock to Pennsylvania Level 1 and Level 2 trauma centers at night or weekends had no increased mortality risk compared with weekday daytime arrivals.
+
+#### paper link:https://www.journalofsurgicalresearch.com/article/S0022-4804(20)30611-9/fulltext
