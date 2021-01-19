@@ -1,0 +1,216 @@
+---
+title: "10_4_final_model_all_centers"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(MASS)
+library(lme4)
+library(modelr)
+library(pls)
+
+```
+
+## Data Import
+```{r}
+df <- read.csv('UPDATED_2_trauma_data_clean.csv')
+
+df$trauma_center_num <- as.factor(df$trauma_center_num)
+df$injury_type <- as.factor(df$injury_type)
+df$death <- (df$death=="Dead")
+df$race <- as.factor(df$race)
+df$ethnicity <- as.factor(df$ethnicity)
+df$intubat_a_OR_assist_ONV <- as.factor(df$intubat_a_OR_assist_ONV)
+df$updated_group <- as.factor(df$updated_group)
+df$bp_zero <- as.factor(df$bp_zero)
+df$pulse_zero <- as.factor(df$pulse_zero)
+
+# Limit dataset to trauma centers with at least 50 deaths:
+df_complete <- df %>% filter(!is.na(gcs_calc_a)) %>% filter(!is.na(race)) %>% filter(!is.na(ethnicity))
+
+# Remove unused levels of trauma_center_num factor:
+df_complete$trauma_center_num <- as.factor(as.character(df_complete$trauma_center_num))
+
+continuous.val <- c("age", "pulse_a", "sys_bp_a", "gcs_calc_a", "injury_serverity_score")
+df_complete[, continuous.val] <- stdize(df_complete[, continuous.val], center = TRUE, scale = TRUE)
+```
+
+
+## stepAIC
+
+#### select variables except trauma_center_num, updated_group and related interactions.
+```{r}
+library(MASS)
+df.center <- df_complete %>% dplyr::select(death, trauma_center_num,updated_group, sex, age, injury_type, pulse_a, gcs_calc_a, injury_serverity_score, intubat_a_OR_assist_ONV, sys_bp_a, bp_zero, pulse_zero) 
+
+df.no.center <- df_complete %>% dplyr::select(death, sex, age, injury_type, pulse_a, gcs_calc_a, injury_serverity_score, intubat_a_OR_assist_ONV, sys_bp_a, bp_zero, pulse_zero) 
+
+basic <- glm(death ~ .,
+             family = binomial,
+             data = df.no.center)
+stepAIC.output <- stepAIC(basic, scope = list(lower=basic, upper= ~.^2), trace = F)
+
+stepAIC.output$anova
+
+summary(stepAIC.output)
+```
+
+```{r}
+basic.1 <- glm(death ~ .+gcs_calc_a:injury_serverity_score 
+                        +age:pulse_a 
+                        +age:injury_type 
+                        +age:gcs_calc_a 
+                        +pulse_a:gcs_calc_a
+                        +injury_serverity_score:pulse_zero 
+                        +injury_type:bp_zero
+                        +sex:bp_zero
+                        +gcs_calc_a:pulse_zero
+                        +sex:gcs_calc_a
+                        +sex:age  
+                        +injury_type:gcs_calc_a
+                        +pulse_a:injury_serverity_score
+                        +gcs_calc_a:intubat_a_OR_assist_ONV
+                        +bp_zero:pulse_zero
+                        +age:sys_bp_a
+                        +sex:sys_bp_a
+                        ,
+             family = binomial,
+             data = df.center)
+
+full.1<- update(basic.1, . ~ . + trauma_center_num
+                               + updated_group
+                               + trauma_center_num*(sex + age+injury_type+ pulse_a+ gcs_calc_a
+                                                   + injury_serverity_score+ intubat_a_OR_assist_ONV
+                                                   + sys_bp_a+ bp_zero+ pulse_zero + updated_group)
+                               +updated_group*(sex + age+injury_type+ pulse_a+ gcs_calc_a
+                                                   + injury_serverity_score+ intubat_a_OR_assist_ONV
+                                                   + sys_bp_a+ bp_zero+ pulse_zero)
+               )
+
+stepAIC.output.1 <- stepAIC(basic.1, scope = list(lower=basic.1, upper= full.1), trace = F)
+
+stepAIC.output.1$anova
+
+summary(stepAIC.output.1)
+```
+
+
+```{r}
+library(lme4)
+# basic model without trauma center number and updated group
+mod0 <- glm(death ~ sex + age + injury_type + pulse_a 
+                            + gcs_calc_a + injury_serverity_score + intubat_a_OR_assist_ONV 
+                            + sys_bp_a + bp_zero + pulse_zero 
+                            +gcs_calc_a:injury_serverity_score #
+                            +age:pulse_a #
+                            +age:injury_type #
+                            +age:gcs_calc_a #
+                            +pulse_a:gcs_calc_a#
+                            +injury_serverity_score:pulse_zero #
+                            +injury_type:bp_zero#
+                            +sex:bp_zero#
+                            +gcs_calc_a:pulse_zero#
+                            +sex:gcs_calc_a#
+                            +sex:age  #
+                            +injury_type:gcs_calc_a#
+                            +pulse_a:injury_serverity_score
+                            +gcs_calc_a:intubat_a_OR_assist_ONV
+                            +bp_zero:pulse_zero
+                            +age:sys_bp_a
+                            +sex:sys_bp_a
+                            , family = "binomial", data = df.center)
+summary(mod0)
+
+# mod0 + updated goup (fixed effect)
+mod1 <- glm(death ~ sex + age + injury_type + pulse_a 
+                            + gcs_calc_a + injury_serverity_score + intubat_a_OR_assist_ONV 
+                            + sys_bp_a + bp_zero + pulse_zero 
+                            +gcs_calc_a:injury_serverity_score #
+                            +age:pulse_a #
+                            +age:injury_type #
+                            +age:gcs_calc_a #
+                            +pulse_a:gcs_calc_a#
+                            +injury_serverity_score:pulse_zero #
+                            +injury_type:bp_zero#
+                            +sex:bp_zero#
+                            +gcs_calc_a:pulse_zero#
+                            +sex:gcs_calc_a#
+                            +sex:age  #
+                            +injury_type:gcs_calc_a#
+                            +pulse_a:injury_serverity_score
+                            +gcs_calc_a:intubat_a_OR_assist_ONV
+                            +bp_zero:pulse_zero
+                            +age:sys_bp_a
+                            +sex:sys_bp_a
+                            +updated_group
+              , family = "binomial", 
+              data = df.center) 
+summary(mod1)
+anova(mod1, mod0, test = "Chisq")
+
+# mod1 + trauma center number (random intercept)
+mod2 <- glmer(death ~ sex + age + injury_type + pulse_a 
+                            + gcs_calc_a + injury_serverity_score + intubat_a_OR_assist_ONV 
+                            + sys_bp_a + bp_zero + pulse_zero 
+                            +gcs_calc_a:injury_serverity_score #
+                            +age:pulse_a #
+                            +age:injury_type #
+                            +age:gcs_calc_a #
+                            +pulse_a:gcs_calc_a#
+                            +injury_serverity_score:pulse_zero #
+                            +injury_type:bp_zero#
+                            +sex:bp_zero#
+                            +gcs_calc_a:pulse_zero#
+                            +sex:gcs_calc_a#
+                            +sex:age  #
+                            +injury_type:gcs_calc_a#
+                            +pulse_a:injury_serverity_score
+                            +gcs_calc_a:intubat_a_OR_assist_ONV
+                            +bp_zero:pulse_zero
+                            +age:sys_bp_a
+                            +sex:sys_bp_a
+                            +updated_group
+                            +(1|trauma_center_num)
+              , family = "binomial", 
+              nAGQ = 0, 
+              control=glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=2e4)),
+              data = df.center) 
+summary(mod2)
+anova(mod2, mod1, test = "Chisq")
+```
+
+```{r}
+# final model
+random.final <- glmer(death ~ sex + age + injury_type + pulse_a 
+                            + gcs_calc_a + injury_serverity_score + intubat_a_OR_assist_ONV 
+                            + sys_bp_a + bp_zero + pulse_zero
+                            #+ race + ethnicity
+                            +gcs_calc_a:injury_serverity_score #
+                            +age:pulse_a #
+                            +age:injury_type #
+                            +age:gcs_calc_a #
+                            +pulse_a:gcs_calc_a#
+                            +injury_serverity_score:pulse_zero #
+                            +injury_type:bp_zero#
+                            +sex:bp_zero#
+                            +gcs_calc_a:pulse_zero#
+                            +sex:gcs_calc_a#
+                            +sex:age  #
+                            +injury_type:gcs_calc_a#
+                            +pulse_a:injury_serverity_score
+                            +gcs_calc_a:intubat_a_OR_assist_ONV
+                            # +bp_zero:pulse_zero 
+                            +age:sys_bp_a
+                            +sex:sys_bp_a
+                            +updated_group
+                            +(1|trauma_center_num)
+              , family = "binomial", 
+              nAGQ = 0, 
+              control=glmerControl(optimizer = "bobyqa", optCtrl=list(maxfun=2e4)),
+              data = df_complete) 
+summary(random.final)
+```
+
